@@ -36,29 +36,29 @@ def send_whatsapp_message(to, text):
         resp = requests.post(url, headers=headers, json=data)
         print("WA response:", resp.status_code, resp.text)
 
-
 def call_gpt(mode: str, user_text: str) -> str:
     """
-    استدعاء ChatGPT مع مود مختلف حسب نوع الأمر
+    استدعاء ChatGPT باستخدام Chat Completions مع الموديل gpt-4o-mini
     """
     if not OPENAI_API_KEY:
-        return "❌ لا يوجد OPENAI_API_KEY مضبوط في السيرفر. يرجى إضافته في Render."
+        return "❌ لا يوجد OPENAI_API_KEY مضبوط في السيرفر."
 
+    # اختيار الـ system prompt حسب نوع الأمر
     if mode == "analysis":
         system_prompt = (
             "أنت دكتور تحليل رياضي لطلاب السنة الأولى في الهندسة المعلوماتية "
             "في الجامعة الافتراضية السورية (ITE S25). اشرح ببساطة وبخطوات، "
-            "مع أمثلة قدر الإمكان، وتجنب الحلول النهائية للوظائف بدون شرح."
+            "مع أمثلة قدر الإمكان، وتجنّب إعطاء حلول جاهزة للوظائف بدون شرح."
         )
     elif mode == "programming":
         system_prompt = (
             "أنت مدرس برمجة C++ لطلاب مبتدئين في الهندسة المعلوماتية – SVU. "
-            "اشرح الأكواد والأخطاء بالتفصيل، مع أمثلة صغيرة، وركز على الفهم."
+            "اشرح الأكواد والأخطاء بالتفصيل، مع أمثلة صغيرة، وركّز على الفهم."
         )
     elif mode == "physics":
         system_prompt = (
             "أنت مدرس فيزياء جامعية (حركة وميكانيك) لطلاب الهندسة المعلوماتية – SVU. "
-            "استخدم شرح مبسط وخطوات واضحة وأمثلة من الحياة اليومية."
+            "استخدم شرحاً مبسّطاً وخطوات واضحة وأمثلة من الحياة اليومية."
         )
     elif mode == "english":
         system_prompt = (
@@ -67,17 +67,19 @@ def call_gpt(mode: str, user_text: str) -> str:
         )
     else:
         system_prompt = (
-            "أنت مساعد دراسي عام لطلاب الهندسة المعلوماتية (ITE S25) في الجامعة الافتراضية السورية. "
-            "ساعدهم في الشرح والفهم وتنظيم الدراسة بدون تشجيع الغش في الواجبات أو الامتحانات."
+            "أنت مساعد دراسي عام لطلاب الهندسة المعلوماتية (ITE S25) في الجامعة "
+            "الافتراضية السورية. ساعدهم في الشرح وتنظيم الدراسة بدون تشجيع الغش."
         )
 
     url = "https://api.openai.com/v1/chat/completions"
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
+
     payload = {
-        "model": "gpt-4.1-mini",
+        "model": "gpt-4o-mini",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -90,22 +92,13 @@ def call_gpt(mode: str, user_text: str) -> str:
         data = r.json()
         return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print("GPT error:", e)
+        # لطباعة تفاصيل الخطأ في الـ Logs على Render
+        try:
+            print("GPT error:", e, r.text)
+        except:
+            print("GPT error:", e)
         return "❌ حصل خطأ أثناء الاتصال بـ ChatGPT. حاول مرة أخرى لاحقاً."
 
-
-# ----------------- Webhook التحقق ----------------- #
-
-@app.route("/webhook", methods=["GET"])
-def verify():
-    mode = request.args.get("hub.mode")
-    token = request.args.get("hub.verify_token")
-    challenge = request.args.get("hub.challenge")
-
-    if mode == "subscribe" and token == VERIFY_TOKEN:
-        return challenge, 200
-
-    return "Error: invalid token", 403
 
 
 # ----------------- Webhook استقبال الرسائل ----------------- #
